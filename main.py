@@ -1,46 +1,36 @@
-import asyncio
-from aiohttp import web
 from aiogram import Bot, Dispatcher
+from aiogram.enums import ParseMode
+from aiogram.fsm.storage.memory import MemoryStorage
+import asyncio
+import logging
 
-from app import config, router
-from app.database import Base, engine
+from config import BOT_TOKEN
+from handlers import (
+    greeting, bad_words, morning, inactivity, wisdom,
+    word_triggers, activity_tracker, random_beer,
+    wiki_google, voice_response, weekly_stats
+)
 
+async def main():
+    logging.basicConfig(level=logging.INFO)
+    bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.HTML)
+    dp = Dispatcher(storage=MemoryStorage())
 
-async def init_database() -> None:
-    '''Create database table asynchronously'''
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    dp.include_routers(
+        greeting.router,
+        bad_words.router,
+        morning.router,
+        inactivity.router,
+        wisdom.router,
+        word_triggers.router,
+        activity_tracker.router,
+        random_beer.router,
+        wiki_google.router,
+        voice_response.router,
+        weekly_stats.router,
+    )
 
-async def healthcheck(_: web.Request) -> web.Response:
-    '''Simple HTTP health check endpoint'''
-    return web.Response(text='OK')
+    await dp.start_polling(bot)
 
-async def bot_start() -> None:
-    '''Initialize and start bot using polling'''
-    bot = Bot(token=config.BOT_TOKEN)
-    dp = Dispatcher()
-    dp.include_router(router)
-
-    try:
-        print('Bot is starting now...')
-        await dp.start_polling(bot)
-    finally:
-        print('Bot has been shut down gracefully')
-
-async def main() -> None:
-    '''The main entry point'''
-    await init_database()
-
-    app = web.Application()
-    app.router.add_get('/health', healthcheck)
-    
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, host='0.0.0.0', port=8080)
-    await site.start()
-
-    await bot_start()
-
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     asyncio.run(main())
